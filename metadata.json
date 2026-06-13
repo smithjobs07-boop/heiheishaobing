@@ -1,0 +1,6 @@
+{
+  "name": "深渊回响 · 恐怖无限流",
+  "description": "一款无限流题材的多分支解谜生存文字游戏，结合多重结局体系、随机生成的恶劣生存环境以及理智值生存策略。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

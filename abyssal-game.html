@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深渊回响 · 极度轮回 | Abyssal Echoes</title>
+    <!-- Tailwind CSS v3 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;700;900&display=swap');
+        
+        /* Tailwind custom config */
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+                        serif: ['Playfair Display', 'Georgia', 'serif'],
+                    }
+                }
+            }
+        }
+    </style>
+    <!-- Babel for parsing JSX in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Lucide Icons UMD -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body {
+            background-color: #050505;
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==========================================
+        // CONSTANTS & CONFIGS
+        // ==========================================
+        const SURVIVAL_ENVIRONMENTS = [
+          {
+            type: 'NORMAL',
+            name: '🔴 猩红暗流 (Scarlet Undercurrent)',
+            description: '浓稠的红褐色虚无烟雾漫步在空间中，不时响起指甲划拉玻璃的声浪。一切处于原罪意志的监视之下。',
+            dangerLevel: 'medium',
+            color: 'from-orange-950 to-neutral-900 border-red-900',
+            effectText: '标准重压：理智衰减处于基础速率。幽灵警觉性正常。',
+            sanCostMultiplier: 1.0
+          },
+          {
+            type: 'BLIZZARD',
+            name: '❄️ 极寒骨风暴 (Glacial Bone Gale)',
+            description: '绝对冰点降临，极寒的雪风裹挟着死人骨灰呼呼吹过，刺入骨髓。连思绪和神智防线都在冰屑里被冻结。',
+            dangerLevel: 'high',
+            color: 'from-sky-950 to-slate-900 border-sky-800',
+            effectText: '极寒创伤：所有抉择对理智的消耗提升 1.5 倍！血液循环降低，反应稍微迟缓。',
+            sanCostMultiplier: 1.5
+          },
+          {
+            type: 'TOXIC_FOG',
+            name: '☣️ 窒居黑尸雾 (Choking Corpse Fog)',
+            description: '一种由焦黑腐败肢体熔解产生的剧毒黑色酸雾弥漫在四周。吸入一口便伴随撕裂肺部的辛辣剧痛。',
+            dangerLevel: 'deadly',
+            color: 'from-emerald-950 to-stone-900 border-emerald-905',
+            effectText: '酸烂剧毒：当任意抉择使你扣除理智时，该负面伤害额外追加 5 点剧毒反噬！',
+            sanCostMultiplier: 1.1
+          },
+          {
+            type: 'BLOOD_RAIN',
+            name: '🌧️ 滂沱死血雨 (Torrential Death Blood-Rain)',
+            description: '暗红色的死尸血雨从无星的穹顶坠落。打在肩膀上发出强酸般的滋滋融蚀声。视线严重受阻！',
+            dangerLevel: 'high',
+            color: 'from-red-950 to-stone-950 border-red-900',
+            effectText: '强侵盲目：隐藏或观察类的节点会消耗更多理智。所有的医疗恢复效能下降 20%。',
+            sanCostMultiplier: 1.2
+          },
+          {
+            type: 'APPARITION_RISE',
+            name: '💀 怨狂夜行 (Apparition Outbreak)',
+            description: '轮回深层的千万怨灵因某种共鸣而发生暴动！墙缝、地底、甚至你自己的影子都在长出凄厉的人脸和手臂。',
+            dangerLevel: 'deadly',
+            color: 'from-purple-950 to-neutral-950 border-purple-900',
+            effectText: '神鬼交感：理智判定限制上浮 10 点！灵体生物的危险指数暴增！',
+            sanCostMultiplier: 1.3
+          },
+          {
+            type: 'DEATHLY_SILENCE',
+            name: '🤫 虚空死寂 (Abyssal Void Silence)',
+            description: '所有的声息、回响、风鸣全部泯灭。极度压抑的寂静犹如重压般死死抵压在耳膜上，引人发狂。',
+            dangerLevel: 'low',
+            color: 'from-zinc-950 to-neutral-900 border-zinc-800',
+            effectText: '死寂冥思：你难以通过声音判别危机。但此时静蹲与潜伏成功的概率将获得史诗级提升。',
+            sanCostMultiplier: 0.8
+          }
+        ];
+
+        const STORY_NODES = {
+          START: {
+            id: 'START',
+            title: '🏥 永罪疯人院 - 寒鸦牢笼',
+            desc: '你从刺骨的钢制病床上苏醒，手铐已被挣断，四壁覆满暗红的抓痕。\n\n冷气从排风口呼呼灌入，夹杂着福尔马林的怪味与死尸的腥甜。铁门紧锁，只有一扇锈蚀的小观察窗，外面的走廊静得可怕。',
+            atmosphere: '你感到手臂上浮现了一道螺旋形的古怪暗影烙印，每经历一次轮回，指纹处的设计就越发扭曲。',
+            choices: [
+              {
+                text: '🔍 搜寻床底下的污旧床单与床板缝隙',
+                next: 'ASYLUM_BED_SEARCH',
+                sanDelta: -4,
+                discoverClue: {
+                  id: 'hospital_escapee_note',
+                  title: '逃生者便签',
+                  description: '“走廊的尽头，光亮之处即是死路，药剂室的试管里藏着毁灭魔影的配方。”'
+                }
+              },
+              {
+                text: '🪵 走向厚重的铁桌，翻找布满蛛网的抽屉',
+                next: 'ASYLUM_DESK_SEARCH',
+                sanDelta: -2,
+                gainItem: {
+                  id: 'ancient_talisman',
+                  name: '古老御魂符咒',
+                  description: '一张焦黄粗糙的黄纸符咒，上面用朱砂画着诡异多眼的图腾，似乎能驱散一次暗影物理伤害。',
+                  icon: 'ShieldAlert',
+                  rarity: 'rare'
+                }
+              },
+              {
+                text: '🚪 直接撞击铁门，查看能否用暴力挣裂锁扣',
+                next: 'ASYLUM_FORCE_DOOR',
+                sanDelta: -10,
+                requireSan: 50
+              }
+            ]
+          },
+
+          ASYLUM_BED_SEARCH: {
+            id: 'ASYLUM_BED_SEARCH',
+            title: '🏥 永罪疯人院 - 壁角蛛丝',
+            desc: '你在床垫边缘摸到了一把黏糊糊的【旧钥匙】和一截染了血的便头，上面写着求生密码。同时，你觉得病床深处有个阴恻恻的眼眶正盯着你。',
+            choices: [
+              {
+                text: '🗝️ 拿走【旧钥匙】，悄悄摸向病房铁门',
+                next: 'ASYLUM_GATE_KEY',
+                sanDelta: -2,
+                gainItem: {
+                  id: 'rusty_key',
+                  name: '旧宿舍钥匙',
+                  description: '一把布满铜绿和干涸血迹的钥匙，能够开启疯人院内的特定房间。',
+                  icon: 'Key',
+                  rarity: 'common'
+                }
+              },
+              {
+                text: '🗣️ 冲着病床底下的黑暗深处说：“谁在那里？”',
+                next: 'ASYLUM_VOICE_IN_DARK',
+                sanDelta: -15
+              }
+            ]
+          },
+
+          ASYLUM_DESK_SEARCH: {
+            id: 'ASYLUM_DESK_SEARCH',
+            title: '🏥 永罪疯人院 - 尘封抽屉',
+            desc: '抽屉卡得极死，你用力一扯，伴随着令人牙酸的摩擦声。一张【古老御魂符咒】安稳地躺在污垢之中，其上的朱砂图腾似在微微悸动。\n\n此时，房门上的小铁窗突然划过一道猩红的目光！',
+            choices: [
+              {
+                text: '🚪 立刻冲向铁门，查看窗外',
+                next: 'ASYLUM_WINDOW_LOOK',
+                sanDelta: -8
+              },
+              {
+                text: '🧗 在门后死角静蹲，握紧符咒静观其变',
+                next: 'ASYLUM_STEALTH_WAIT',
+                sanDelta: -3
+              }
+            ]
+          },
+
+          ASYLUM_FORCE_DOOR: {
+            id: 'ASYLUM_FORCE_DOOR',
+            title: '🏥 永罪疯人院 - 暴力余响',
+            desc: '你用肩膀猛撞铁门数次，门锁轰鸣巨响，钢栓变形。但巨大的动静惊醒了游荡在回廊的【食尸医师】！\n\n重物拖行的摩擦声迅速接近，你必须立刻决定去向。',
+            choices: [
+              {
+                text: '🤜 在门后设伏，准备迎击怪物',
+                next: 'ASYLUM_FIGHT_BEAST',
+                sanDelta: -15,
+                requireItem: 'ancient_talisman'
+              },
+              {
+                text: '🚪 铁门开了个缝！抓紧时间夺门而逃',
+                next: 'ASYLUM_CORRIDOR_FLEE',
+                sanDelta: -8
+              }
+            ]
+          },
+
+          ASYLUM_VOICE_IN_DARK: {
+            id: 'ASYLUM_VOICE_IN_DARK',
+            title: '🏥 永罪疯人院 - 噬皮阴影',
+            desc: '床底下的黑暗蠕动起来，一双惨白无皮的手臂猛然弹射出，指甲疯狂抠割你的面庞。你剧痛中拼死踹击反抗才摆脱它的纠缠，险些失去整张脸。',
+            choices: [
+              {
+                text: '🏃 满脸鲜血，拼命推门逃出病房',
+                next: 'ASYLUM_CORRIDOR_FLEE',
+                sanDelta: -12
+              }
+            ]
+          },
+
+          ASYLUM_WINDOW_LOOK: {
+            id: 'ASYLUM_WINDOW_LOOK',
+            title: '🏥 永罪疯人院 - 极深窥伺',
+            desc: '你把眼睛凑上铁窗，正对上一枚巨大的、半透明且布满复眼的眼球！那眼球疯狂旋转，发出令人作呕的咀嚼声。你的大脑嗡鸣，眼角溢出鲜血。',
+            choices: [
+              {
+                text: '😱 捂着头跌倒在地，迅速向后爬行',
+                next: 'ASYLUM_STEALTH_WAIT',
+                sanDelta: -12
+              }
+            ]
+          },
+
+          ASYLUM_STEALTH_WAIT: {
+            id: 'ASYLUM_STEALTH_WAIT',
+            title: '🏥 永罪疯人院 - 窒息潜伏',
+            desc: '你屏住呼吸蹲下。只听外面沉重的脚步声伴随着指甲划拉钢板的声音掠过大门。那异形生物在门前停顿了许久，发出刺耳的叹息后，缓缓远去。',
+            choices: [
+              {
+                text: '🚪 确定怪物离开，推开虚掩的门前往走廊',
+                next: 'ASYLUM_CORRIDOR_FLEE',
+                sanDelta: -2
+              }
+            ]
+          },
+
+          ASYLUM_GATE_KEY: {
+            id: 'ASYLUM_GATE_KEY',
+            title: '🏥 永罪疯人院 - 撬开枷锁',
+            desc: '你将【旧钥匙】死死捅入锁孔，生锈的机关卡卡作响，扭转的瞬间，咔哒一声！铁门露出了一道缝隙，走廊里吹来幽绿的鬼火之风。',
+            choices: [
+              {
+                text: '🚶 轻推铁门，踏入暗无天日的中央回廊',
+                next: 'ASYLUM_CORRIDOR_FLEE',
+                sanDelta: -3
+              }
+            ]
+          },
+
+          ASYLUM_FIGHT_BEAST: {
+            id: 'ASYLUM_FIGHT_BEAST',
+            title: '🏥 永罪疯人院 - 生死博弈',
+            desc: '扭曲的【食尸医师】撕碎大门闯入，你手中的【古老御魂符咒】释放出刺目的金色梵文屏障，强行将它的骨爪震得粉碎！\n\n怪物哀嚎退缩，跌入虚空，你在地上捡起了它掉落的一把细细的【纯银手术刀】！',
+            choices: [
+              {
+                text: '🔪 带上这把寒气逼人的【纯银手术刀】离开',
+                next: 'ASYLUM_CORRIDOR_FLEE',
+                sanDelta: -2,
+                gainItem: {
+                  id: 'silver_scalpel',
+                  name: '纯银除魔手术刀',
+                  description: '闪着冷硬光泽的特制手术刀，上面镌刻着净化符文，是刺穿高阶灵体核心的极佳兵器。',
+                  icon: 'Sword',
+                  rarity: 'rare'
+                }
+              }
+            ]
+          },
+
+          ASYLUM_CORRIDOR_FLEE: {
+            id: 'ASYLUM_CORRIDOR_FLEE',
+            title: '🏥 永罪疯人院 - 斑驳走廊',
+            desc: '你来到巨大的井状十字走廊，墙壁上插挂着惨白的点滴瓶，有些还在滴着胶状血。左侧标有「配药室 / PHARMACY」，牌子上满是手印；右侧是一座通往地下万生石坑的「排污斜坡」。',
+            choices: [
+              {
+                text: '🧪 进入【配药室】，寻找可以治疗理智的药品或逃生物卡',
+                next: 'ASYLUM_PHARMACY',
+                sanDelta: -2,
+                requireItem: 'rusty_key'
+              },
+              {
+                text: '🧪 钥匙已失窃或不匹配，尝试强行踹击【配药室】的玻璃窗',
+                next: 'ASYLUM_PHARMACY_FORCE',
+                sanDelta: -8
+              },
+              {
+                text: '🩸 绕过配药室，沿着散发诡秘嚎叫的【排污斜坡】向下',
+                next: 'ASYLUM_UNDERGROUND',
+                sanDelta: -10
+              }
+            ]
+          },
+
+          ASYLUM_PHARMACY_FORCE: {
+            id: 'ASYLUM_PHARMACY_FORCE',
+            title: '🏥 永罪疯人院 - 血碎玻璃',
+            desc: '你一脚踹烂配药室的雕花玻璃窗，手掌被划得鲜血淋漓，惊恐的声音回荡在空间。但这也让你得以翻窗潜入。',
+            choices: [
+              {
+                text: '🚪 进入药剂案台搜寻物品',
+                next: 'ASYLUM_PHARMACY',
+                sanDelta: -4
+              }
+            ]
+          },
+
+          ASYLUM_PHARMACY: {
+            id: 'ASYLUM_PHARMACY',
+            title: '🧪 配药室 - 化学实验之谜',
+            desc: '案台上堆满了绿幽幽的烧杯，黑色的黑板上画着一幅「剧毒化学裂变配方」：\n\n“红色剧毒 + 蓝色酸液 = 橙色侵蚀弹(可破损魔界阵法)”。\n但如果不慎混合了黄色沉淀物，其蒸气会瞬间让人窒息死灭。你必须在两个试管组合中完美做出。',
+            puzzle: {
+              type: 'sequence',
+              question: '黑板上的另一行暗笔写着：“元素结合的真因是，红(R)、蓝(B)、黄(Y)。生成裂变的密码是红蓝混合的拼音简写，加上沉淀物数量。提示为三个英文字母。”(答案是拼音合成词：RBY)',
+              hint: '红黄蓝的首字母组合。',
+              correctAnswer: 'RBY',
+              onSuccessNode: 'ASYLUM_BOMB_CRAFTED',
+              onFailNode: 'ASYLUM_CHEMICAL_EXPLOSION',
+              failSanityDamage: 25
+            }
+          },
+
+          ASYLUM_CHEMICAL_EXPLOSION: {
+            id: 'ASYLUM_CHEMICAL_EXPLOSION',
+            title: '💀 化学废料污染',
+            desc: '你混合了错误的试管，灼热的紫雾瞬间喷薄而出，迅速腐蚀了你胸前的皮肤，有毒迷雾令你神经崩溃。你大声咳嗽着，从浓烟中跌退出来。',
+            choices: [
+              {
+                text: '🏃 带伤向排污斜坡逃窜',
+                next: 'ASYLUM_UNDERGROUND',
+                sanDelta: -15
+              }
+            ]
+          },
+
+          ASYLUM_BOMB_CRAFTED: {
+            id: 'ASYLUM_BOMB_CRAFTED',
+            title: '🧪 配药室 - 提炼强效橙剂',
+            desc: '你敏捷地按照配方滴定，伴随着轻微的气泡爆鸣，一管晶莹剔透、散发着刺鼻橘红色强光的【强酸爆裂弹】落入你的手中！黑板下的铁抽屉弹开，你还在里面发现了两袋【高浓度安神酚制剂】！',
+            choices: [
+              {
+                text: '🎒 迅速收纳【强酸爆裂弹】，并喝下安神酚恢复理智',
+                next: 'ASYLUM_UNDERGROUND',
+                sanDelta: 30,
+                gainItem: {
+                  id: 'acid_bomb',
+                  name: '强酸复合橙色爆裂弹',
+                  description: '蕴含极高腐蚀性和微型爆炸势能的化学橙剂。可用于炸开高硬度的地道铁门或溶穿怨魂结界。',
+                  icon: 'Bomb',
+                  rarity: 'rare'
+                }
+              }
+            ]
+          },
+
+          ASYLUM_UNDERGROUND: {
+            id: 'ASYLUM_UNDERGROUND',
+            title: '🩸 疯人院地窖 - 血污深孔',
+            desc: '你顺由排污坡滑落，底部是一口由人体残碎白骨堆砌成的“血池祭坛”。在祭坛中心，一道黑色黏腻的大理石门死死封塞在此，上面附着一层散发着黑烟的「怨气锁链」。\n\n虚空的声音嘲讽道：『没有毁灭之物，你便永远留在此处，陪同千百世的牺牲者！』',
+            choices: [
+              {
+                text: '💣 投掷【强酸复合橙色爆裂弹】炸碎怨灵封印',
+                next: 'TRAIN_STATION_ARRIVAL',
+                sanDelta: -5,
+                removeItem: true,
+                requireItem: 'acid_bomb'
+              },
+              {
+                text: '📜 展示【古老御魂符咒】，尝试用梵文净化石门锁链',
+                next: 'TRAIN_STATION_ARRIVAL',
+                sanDelta: -10,
+                removeItem: true,
+                requireItem: 'ancient_talisman'
+              },
+              {
+                text: '🩸 用肉身骨血拼死撞击石门缝（强行突破，损耗巨额理智并直接导致难度激增）',
+                next: 'TRAIN_STATION_BLOOD_FORCE',
+                sanDelta: -45
+              }
+            ]
+          },
+
+          TRAIN_STATION_BLOOD_FORCE: {
+            id: 'TRAIN_STATION_BLOOD_FORCE',
+            title: '🩸 牺牲拼搏 - 破碎的肉体',
+            desc: '你拼死撞门，骨头发出碎裂的哀鸣，但恐怖的意志居然让你生生把这黑石大门撞偏了数寸！你浑身浴血，像死尸一样跌进了石门后的漫天大雾中，轮回重压再次在你脑中狂啸。',
+            choices: [
+              {
+                text: '🌪️ 在冰冷虚空中缓缓抬起头来',
+                next: 'TRAIN_STATION_ARRIVAL',
+                sanDelta: -5,
+                loopDelta: 1
+              }
+            ]
+          },
+
+          TRAIN_STATION_ARRIVAL: {
+            id: 'TRAIN_STATION_ARRIVAL',
+            title: '🚂 轮回应答站 - 终末号列车',
+            desc: '你突破大门，迎面是一阵冷冽至极的铁轨蒸汽。你正站在一座无顶的中世纪蒸汽火车站，四周大雪纷飞。\n\n一辆用纯黑钢甲外裹、如同金属巨兽般的【极夜万骨号列车】发出汽笛低吼，静泊在站台。列车上刻着无数痛苦扭曲的死者人面，车厢窗户隐约透出忽明忽暗的黄光。',
+            choices: [
+              {
+                text: '🎟️ 在站牌旁的乘票机处，尝试提取乘车通行证',
+                next: 'TRAIN_TICKET_PUZZLE',
+                sanDelta: -3,
+                discoverClue: {
+                  id: 'conductor_memo',
+                  title: '乘务员备忘铁牌',
+                  description: '“终点站前的驾驶室需要三位神使的象征代码（1、4、8）。切勿对乘客对视超过3秒。”'
+                }
+              },
+              {
+                text: '🧗 绕开检票口，直接攀爬列车两侧的排气梯，强登第2节车厢',
+                next: 'TRAIN_PASSENGER_CAR',
+                sanDelta: -10
+              }
+            ]
+          },
+
+          TRAIN_TICKET_PUZZLE: {
+            id: 'TRAIN_TICKET_PUZZLE',
+            title: '🚂 铁轨碎屑 - 数字罗盘',
+            desc: '售票机荧幕上满是暗斑，上面写着一串斑驳的代码：\n\n“逆行无光列车，车次为 A → B → C（密码按A,B,C排列）。已知A是双子星之数，B是撒旦的羊角，C是北斗星的极数。请在输入阀处按下对应之密。”',
+            puzzle: {
+              type: 'keypad',
+              question: '求A,B,C组成的3位数值 (双子=2, 羊角=2, 北斗星极数[北斗七星]=7。答案是：227)',
+              hint: '每个词对应的数字连在一起。数字依序代表双子、羊角（2个角）、北斗（七星）。',
+              correctAnswer: '227',
+              onSuccessNode: 'TRAIN_PLATFORM_VIP',
+              onFailNode: 'TRAIN_PLATFORM_AMBUSH',
+              failSanityDamage: 18
+            }
+          },
+
+          TRAIN_PLATFORM_AMBUSH: {
+            id: 'TRAIN_PLATFORM_AMBUSH',
+            title: '🚂 汽笛轰鸣 - 吞魂鬼影',
+            desc: '输入错误后，机器内溢出滚滚白骨黑烟。几个由碎尸组成的【执纪乘警】从长椅下站起，骨制警棍暴戾挥来！你拼尽全力撞碎二号车窗翻入车厢，全身布满淤青。',
+            choices: [
+              {
+                text: '🚪 满腔冷汗中，在昏沉的车厢地毯上爬起',
+                next: 'TRAIN_PASSENGER_CAR',
+                sanDelta: -8
+              }
+            ]
+          },
+
+          TRAIN_PLATFORM_VIP: {
+            id: 'TRAIN_PLATFORM_VIP',
+            title: '🚂 列车中舱 - 贵宾乘车券',
+            desc: '密码核验成功，一张泛着银质光芒的【幽冥贵宾专属车票】滑落到你手里。拿着这张车票，不仅可以让巡逻的列车长对你熟视无睹，甚至能平复你内心的一些慌乱。',
+            choices: [
+              {
+                text: '🎟️ 收好车票，优雅从侧面检票门踏入第2车厢',
+                next: 'TRAIN_PASSENGER_CAR',
+                sanDelta: 8,
+                gainItem: {
+                  id: 'vip_ticket',
+                  name: '幽冥贵宾专属车票',
+                  description: '一张坚硬且极寒的白银质地车票，持有它能让大部分列车眷属免除敌意，抚平内心的躁动。',
+                  icon: 'Ticket',
+                  rarity: 'rare'
+                }
+              }
+            ]
+          },
+
+          TRAIN_PASSENGER_CAR: {
+            id: 'TRAIN_PASSENGER_CAR',
+            title: '🚂 极夜万骨号 - 诡雾乘客车厢',
+            desc: '车厢里满是白雾，过道两侧密集成排坐着身着寿衣的乘客，每个人脸上都覆着一张厚重的报纸。随着列车的震动，所有人的报纸同时发出哗啦、哗啦的轻颤。\n\n最刺眼的是，车厢中间的铁柱上，贴着一张带有巨幅鬼脸的「列车管理条例」。',
+            choices: [
+              {
+                text: '👁️ 侧身走过，顺便快速瞟一眼第一个乘客桌前的《冥府早报》',
+                next: 'TRAIN_READ_PAPER',
+                sanDelta: -5
+              },
+              {
+                text: '🚶 不看不听，死死盯着地面快速向最前段的「驾驶室」移动',
+                next: 'TRAIN_ENGINE_DOOR',
+                sanDelta: -3
+              },
+              {
+                text: '🎫 （如果你持有【幽冥贵宾专属车票】）向过道的空姐幽灵出示白银车票',
+                next: 'TRAIN_CAR_CABIN_VIP_LUCK',
+                sanDelta: 10,
+                requireItem: 'vip_ticket'
+              }
+            ]
+          },
+
+          TRAIN_CAR_CABIN_VIP_LUCK: {
+            id: 'TRAIN_CAR_CABIN_VIP_LUCK',
+            title: '🚂 幽灵款待 - 魂晶露水',
+            desc: '没有下巴的空姐空无一物，看见白银专属车票后朝你欠身行礼，并赠予你一杯散发清香的【冷泉凝露酒】。喝下后，你仿佛感到自己的脑电波在颤栗。物理灼伤和恐惧瞬间隐去。',
+            choices: [
+              {
+                text: '🚶 容光焕发，昂领迈向驾驶舱中枢',
+                next: 'TRAIN_ENGINE_DOOR',
+                sanDelta: 20
+              }
+            ]
+          },
+
+          TRAIN_READ_PAPER: {
+            id: 'TRAIN_READ_PAPER',
+            title: '📰 冥府早报 - 二十六号轮回记录',
+            desc: '你掀开乘客脸上的边角，上面写着血淋淋的讣告报导：“XX年永夜村全村祭神，以乾坤八卦阵封印地底之灵，生人禁忌，生肖密码藏在祠堂钟摆的倒影中，午时之刻为木。”\n\n突然门下的死人眼球骤然睁开！死人怪叫着朝你抓来！',
+            choices: [
+              {
+                text: '🏃 踢踹其面颅，踉踉跄跄闯进前端隔离门',
+                next: 'TRAIN_ENGINE_DOOR',
+                sanDelta: -10,
+                discoverClue: {
+                  id: 'village_ritual_hint',
+                  title: '生人祭海祭文',
+                  description: '“祠堂里的八卦天时封印，需要顺时针转动象征木行与火行的轮盘（即午时与巳时）。”'
+                }
+              }
+            ]
+          },
+
+          TRAIN_ENGINE_DOOR: {
+            id: 'TRAIN_ENGINE_DOOR',
+            title: '🚂 极夜万骨号 - 疯狂熔炉驾驶舱',
+            desc: '你冲到列车车头。一排散发着熔岩红光的巨型蒸汽阀门正在疯狂泄气，旁边堆满了森森白骨灰烬。\n驾驶舱前的操纵面板上布满拉杆，还有一尊「无眼机车神像」死死堵塞在此。它的脑门上篆刻着一圈符文，你需要输入三个神使象征的代码：',
+            puzzle: {
+              type: 'symbols',
+              question: '根据你在此前获得的备忘录铁牌线索（1, 4, 8），这三个数字按从小到大排序的真能组合是什么？',
+              hint: '直接输入那一组数字。即148。',
+              correctAnswer: '148',
+              onSuccessNode: 'TRAIN_RUSH_VILLAGE',
+              onFailNode: 'TRAIN_CRASH_DEATH',
+              failSanityDamage: 30
+            }
+          },
+
+          TRAIN_CRASH_DEATH: {
+            id: 'TRAIN_CRASH_DEATH',
+            title: '💀 钢甲熔岩之死',
+            desc: '你按错了蒸汽代码！巨大的熔核锅炉瞬间发出尖锐爆鸣，超压的1200度蒸汽将机车头瞬间撕得粉碎。你在无穷炽白火焰中，看见自己被熔炼成了列车窗户上的一颗哀嚎骷髅。',
+            choices: [],
+            isDeath: true,
+            deathMsg: '你的肉体骨血化为机车燃烧的燃料，在此永无尽头地飞驰冲向悬崖。'
+          },
+
+          TRAIN_RUSH_VILLAGE: {
+            id: 'TRAIN_RUSH_VILLAGE',
+            title: '🚂 极夜万骨号 - 破壁飞行',
+            desc: '你敲对了密钥！疯狂神像的双目爆发出刺目青光，拉杆自动复位，机车爆发出惊恐的加速！\n\n列车以突破物理边界的200公里时速，一头撞碎了前方永无止境的铁轨，一网砸向了底部的浓黑虚空。伴着剧烈的失重感，你开始旋转坠向下个世界。',
+            choices: [
+              {
+                text: '🌪️ 在白骨天雨中坠落，任由思维在虚空中颠簸',
+                next: 'VILLAGE_WHITE_FOG',
+                sanDelta: -8,
+                gainItem: {
+                  id: 'conductor_horn',
+                  name: '无目乘务员铜号角',
+                  description: '一件略带铁锈的重铜号角，吹响它时能发出凄厉悠长、干扰怨灵神魂的尖锐频率。',
+                  icon: 'Music',
+                  rarity: 'rare'
+                }
+              }
+            ]
+          },
+
+          VILLAGE_WHITE_FOG: {
+            id: 'VILLAGE_WHITE_FOG',
+            title: '🏮 永夜荒村 - 灰烬入口',
+            desc: '你睁开眼，躺在阴风刺骨的小泥路上。天空中雪花与惨白的纸钱混杂交织。四周白雾漫野，只有路边不远处立着几座扎着纸童、纸马的旧牌坊。\n\n前方迷雾中高挂两排凄惨的绿皮灯笼，指引着两个地点：左侧是一口幽深无底、溢出诡异水雾的「锁魂枯井 / DEATH WELL」；右侧是全村最高处的「陈氏祖玄祭祀祠堂 / ANCESTRAL HALL」。',
+            choices: [
+              {
+                text: '🕳️ 前往【锁魂枯井】，探视怨气源头，看是否能有奇遇',
+                next: 'VILLAGE_WELL_ROOM',
+                sanDelta: -8
+              },
+              {
+                text: '⛩️ 稳步向前，通过满是纸人的庄严牌坊前往【陈氏祠堂】',
+                next: 'VILLAGE_TEMPLE_GATE',
+                sanDelta: -5
+              }
+            ]
+          },
+
+          VILLAGE_WELL_ROOM: {
+            id: 'VILLAGE_WELL_ROOM',
+            title: '🕳️ 锁魂枯井 - 寒尸碧幽',
+            desc: '你站在枯井石台前。向下窥看，水井中居然填满了无数泛着青紫荧光的骨骸，骨殖之间隐约浮现一把晶莹剔透的水晶小尺，或者是一枚刻着真理图案的石板残块。\n\n冷水中一条幽冥的水猴子黑影正在水面疯狂盘旋，一旦下井极有可能遭遇致命袭击。',
+            choices: [
+              {
+                text: '🗡️ 持有【纯银除魔手术刀】，一跃踏入冰冷的死水，物理超度怨蛇，夺取遗物',
+                next: 'VILLAGE_WELL_SUCCESS',
+                sanDelta: -10,
+                requireItem: 'silver_scalpel'
+              },
+              {
+                text: '🐚 吹响【无目乘务员铜号角】干扰并震慑水下的冤魂生物',
+                next: 'VILLAGE_WELL_SUCCESS',
+                sanDelta: -5,
+                requireItem: 'conductor_horn'
+              },
+              {
+                text: '🧗 在手无寸铁、神识衰弱的情况下强行攀爬湿滑的井壁（胜率极低）',
+                next: 'VILLAGE_WELL_FAILURE',
+                sanDelta: -30
+              }
+            ]
+          },
+
+          VILLAGE_WELL_FAILURE: {
+            id: 'VILLAGE_WELL_FAILURE',
+            title: '💀 坠入井底骨湖',
+            desc: '没有武器与克制法器，你湿皮的手指一滑，瞬间一头扎进极寒的水域中。数十双冰寒蚀骨的鬼手瞬间将你拽沉海底，数千升死水一齐灌入你的胸腔。你的理智化为了水泡。',
+            choices: [],
+            isDeath: true,
+            deathMsg: '你的冤魂化为这口枯井中新的淤沙，夜深时为过路的行人唱着阴恻的歌谣。'
+          },
+
+          VILLAGE_WELL_SUCCESS: {
+            id: 'VILLAGE_WELL_SUCCESS',
+            title: '🕳️ 锁魂枯井 - 捞取真理珍宝',
+            desc: '无论是用纯银银刃在血雾里狂暴劈砍，还是吹响高昂的冥府号角。水下鬼影哀鸣着化作黑烟消散！\n\n你在残骸底部捡起了一件极其贵重的神圣遗物——【太极真理玉衡石板】！此石板上浮现不灭金光，护体安详，彻底免疫一次心魔冲击！',
+            choices: [
+              {
+                text: '⛰️ 紧握石板，离开并直接奔赴祠堂高处',
+                next: 'VILLAGE_TEMPLE_GATE',
+                sanDelta: 15,
+                gainItem: {
+                  id: 'truth_tablet',
+                  name: '太极真理玉衡石板',
+                  description: '镌刻着乾坤阴阳玄奥秘纹的白璧石板。握着它，便能看穿无限流中由古邪之神设立的一切真妄幻境，也是打通真理救赎结局的最关键媒介！',
+                  icon: 'Compass',
+                  rarity: 'cursed'
+                }
+              }
+            ]
+          },
+
+          VILLAGE_TEMPLE_GATE: {
+            id: 'VILLAGE_TEMPLE_GATE',
+            title: '⛩️ 陈氏祠堂 - 诡火白堂',
+            desc: '你来到大院，院子里整齐摆放着九十九具贴着封条的漆黑寿棺，寿馆前端点亮着白色冥烛。\n\n高耸的祠堂铁将军重门前有一块旋转乾坤锁扣，上面插挂着古香古色的黄铜太极仪。锁盘边缘刻着天干地支，你需要对齐太极之位。',
+            choices: [
+              {
+                text: '🧩 尝试走上前旋转天干地支五行锁扣',
+                next: 'VILLAGE_BAGUA_PUZZLE',
+                sanDelta: -5
+              }
+            ]
+          },
+
+          VILLAGE_BAGUA_PUZZLE: {
+            id: 'VILLAGE_BAGUA_PUZZLE',
+            title: '🎴 乾坤倒转 - 五行八卦锁扣',
+            desc: '根据你在《冥府早报》以及周遭环境发现的蛛丝马迹：\n“八卦金盘锁，五行中木能克土，木行对应的地支之首为‘寅’（拼音音节：YIN）。请输入能唤起风雷破法阵的拼音代码（3个大写字母）以彻底熔断大门铜锁。”',
+            puzzle: {
+              type: 'sequence',
+              question: '求‘寅’的拼音大写组合（其实就是：YIN）。提示为3个英文字母。',
+              hint: '地支寅木对应拼音：YIN。',
+              correctAnswer: 'YIN',
+              onSuccessNode: 'VILLAGE_TEMPLE_INTERIOR',
+              onFailNode: 'VILLAGE_TEMPLE_TRAP_DEATH',
+              failSanityDamage: 35
+            }
+          },
+
+          VILLAGE_TEMPLE_TRAP_DEATH: {
+            id: 'VILLAGE_TEMPLE_TRAP_DEATH',
+            title: '💀 冥火万虫蛊毒之刑',
+            desc: '你拨错轮盘！太极铜仪底部瞬间齿轮高速逆转，两排寿棺的封条瞬间断裂，数万只散发着绿火的【啃髓尸蛊】如黑瀑布般飞射而出，将你的衣帽、肉身、骨髓啃噬得干干净净。',
+            choices: [],
+            isDeath: true,
+            deathMsg: '你的骸骨堆码在祠堂门槛外，成为警告后来轮回者的下一具白骨。'
+          },
+
+          VILLAGE_TEMPLE_INTERIOR: {
+            id: 'VILLAGE_TEMPLE_INTERIOR',
+            title: '⛩️ 陈氏祠堂 - 神神相扣',
+            desc: '太极八卦锁咔嚓一声熔解，红漆重门向后打开。\n\n昏暗的主殿内并没有摆放神像，而是在中央立着一整面黑压压、用线香熏得焦黑的「万灵魂位神壁」。虚空最深处的嘶吼在回荡：\n『你解尽迷局，但也只剩这满舱的亡魂残局！有请真神古魔，为你的挣扎画上句点！』\n\n整座神壁缓缓向两侧裂开，后方是一条淌着浓浆、直接连接时空尽头的【虚无深渊眼眸】！',
+            choices: [
+              {
+                text: '📜 展示【太极真理玉衡石板】并大声对神魔宣读无上真理',
+                next: 'FINAL_SALVATION_ENDING',
+                sanDelta: 30,
+                requireItem: 'truth_tablet'
+              },
+              {
+                text: '🗡️ 持有【纯银除魔手术刀】，孤注一掷将残缺的手术钢刀扎入虚无巨眼',
+                next: 'FINAL_BLOOD_SEVERANCE',
+                sanDelta: -20,
+                requireItem: 'silver_scalpel'
+              },
+              {
+                text: '😱 没有特殊媒介，空着双手在最后一刻扑向裂隙（无奈的残破献祭，迎接轮回重启）',
+                next: 'FINAL_CYCLE_COLLAPSE',
+                sanDelta: -60
+              }
+            ]
+          },
+
+          FINAL_CYCLE_COLLAPSE: {
+            id: 'FINAL_CYCLE_COLLAPSE',
+            title: '🌀 终末回摆 - 永无止境的轮回牢笼',
+            desc: '你空手无凭地跌入神壁巨眼裂隙。无数邪异巨蛇触手瞬间卷过并将你的灵魂嚼碎，重塑发酵。你的意识再度沉入疯人院底层血泊。\n\n『徒劳无功的挣扎，回到你的起点去……』',
+            choices: [],
+            isDeath: true,
+            deathMsg: '本层通关失败，但因为在最后的祠堂接触了深渊，下一周目开始时，你的初始轮回层数将激增！'
+          },
+
+          FINAL_BLOOD_SEVERANCE: {
+            id: 'FINAL_BLOOD_SEVERANCE',
+            title: '🗡️ 狂热血切 - 斩灵寂灭（完美暴力结局）',
+            desc: '你发出一声雷霆暴喝，右腿蹬墙借力，整个人在失重空间腾跃而起，将闪耀着耀眼银电的【纯银除魔手术刀】死死砸进了深渊巨眼！\n\n『不！！蝼蚁的力量怎能触碰……』\n巨眼轰然爆炸，化为纯墨色的飞灰。周围的空间一寸一寸碎裂倒塌，你跌回到了暖烘烘的现实病房中，手腕上已没有任何枷锁烙印！',
+            choices: [],
+            isEnding: true,
+            endingTitle: '🎉 【完美暴力结局：斩灵寂灭】',
+            endingMsg: '你用无可匹敌的绝对意志和手术利刃撕裂了禁锢的世界，你已经回归现实，噩梦已被你亲手捏碎收割。'
+          },
+
+          FINAL_SALVATION_ENDING: {
+            id: 'FINAL_SALVATION_ENDING',
+            title: '🌟 真理破晓 - 永烁真章（真正天道脱困结局）',
+            desc: '你神情平静，高举溢满温润玉光的【太极真理玉衡石板】。石板中的真理铭文瞬间化作漫天不灭的金华长龙飞舞，全副披靡，万鬼哭号，化为尘埃。那深渊之眸在金龙的净化下缓缓平复、闭合，崩陷成一条温暖澄净的白色光路。\n\n那光路的尽头是绿草如茵的高岗，和拂过你额发的温暖微风。',
+            choices: [],
+            isEnding: true,
+            endingTitle: '🏆 【完美完美救赎结局：真理破晓】',
+            endingMsg: '你洞悉了八卦仪理，搜集了散落诸世界的真理石板。深渊已除，尘缘散尽，所有的轮回者因你而得到升华，你踏上了归乡的阳光通途。'
+          }
+        };
+
+        // ==========================================
+        // WEB AUDIO CONTROLLER
+        // ==========================================
+        class SoundController {
+          constructor() {
+            this.ctx = null;
+            this.masterGain = null;
+            this.heartbeatInterval = null;
+          }
+
+          init() {
+            if (this.ctx) return;
+            try {
+              this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+              this.masterGain = this.ctx.createGain();
+              this.masterGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+              this.masterGain.connect(this.ctx.destination);
+            } catch (e) {
+              console.warn('AudioContext not supported');
+            }
+          }
+
+          setMute(mute) {
+            if (!this.masterGain) return;
+            this.masterGain.gain.setValueAtTime(mute ? 0 : 0.3, this.ctx ? this.ctx.currentTime : 0);
+          }
+
+          playTick() {
+            if (!this.ctx || this.ctx.state === 'suspended') return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.015, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.05);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.06);
+          }
+
+          playChime() {
+            if (!this.ctx || this.ctx.state === 'suspended') return;
+            const t = this.ctx.currentTime;
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            freqs.forEach((f, index) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(f, t + index * 0.08);
+              gain.gain.setValueAtTime(0, t);
+              gain.gain.linearRampToValueAtTime(0.08, t + index * 0.08 + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, t + index * 0.08 + 0.5);
+              osc.connect(gain);
+              gain.connect(this.masterGain);
+              osc.start(t + index * 0.08);
+              osc.stop(t + index * 0.08 + 0.6);
+            });
+          }
+
+          playHurt() {
+            if (!this.ctx || this.ctx.state === 'suspended') return;
+            const t = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const osc2 = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, t);
+            osc.frequency.linearRampToValueAtTime(45, t + 0.4);
+
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(115, t);
+            osc2.frequency.linearRampToValueAtTime(40, t + 0.4);
+            
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+            
+            osc.connect(gain);
+            osc2.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start();
+            osc2.start();
+            osc.stop(t + 0.5);
+            osc2.stop(t + 0.5);
+          }
+
+          startHeartbeat(sanity) {
+            if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+            if (!this.ctx || this.ctx.state === 'suspended') return;
+
+            const playPulse = () => {
+              if (!this.ctx || this.ctx.state === 'suspended') return;
+              const t = this.ctx.currentTime;
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(55, t);
+              gain.gain.setValueAtTime(0, t);
+              gain.gain.linearRampToValueAtTime(sanity < 30 ? 0.35 : 0.15, t + 0.05);
+              gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+              osc.connect(gain);
+              gain.connect(this.masterGain);
+              osc.start();
+              osc.stop(t + 0.3);
+
+              setTimeout(() => {
+                if (!this.ctx || this.ctx.state === 'suspended') return;
+                const t2 = this.ctx.currentTime;
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(52, t2);
+                gain2.gain.setValueAtTime(0, t2);
+                gain2.gain.linearRampToValueAtTime(sanity < 30 ? 0.3 : 0.1, t2 + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.25);
+                osc2.connect(gain2);
+                gain2.connect(this.masterGain);
+                osc2.start();
+                osc2.stop(t2 + 0.3);
+              }, 150);
+            };
+
+            const intervalRate = sanity < 30 ? 700 : 1500;
+            this.heartbeatInterval = setInterval(playPulse, intervalRate);
+          }
+
+          stopHeartbeat() {
+            if (this.heartbeatInterval) {
+              clearInterval(this.heartbeatInterval);
+              this.heartbeatInterval = null;
+            }
+          }
+        }
+
+        const audio = new SoundController();
+
+        // ==========================================
+        // DYNAMIC ICON WRAPPER USING LUCIDE-UMD
+        // ==========================================
+        const LucideIcon = ({ name, className = "w-5 h-5 text-zinc-300" }) => {
+          const iconRef = useRef(null);
+
+          useEffect(() => {
+            if (iconRef.current && window.lucide) {
+              iconRef.current.innerHTML = '';
+              // Resolve Lucide icons in UMD format
+              const iconKey = name;
+              const icon = window.lucide.icons[iconKey] || window.lucide.icons.Sparkles;
+              if (icon) {
+                const svg = icon.toSVG({ class: className });
+                iconRef.current.innerHTML = svg;
+              }
+            }
+          }, [name, className]);
+
+          return <span ref={iconRef} className="inline-flex items-center justify-center pointer-events-none" />;
+        };
+
+        // ==========================================
+        // MAIN APP COMPONENT
+        // ==========================================
+        function App() {
+          const [sanity, setSanity] = useState(100);
+          const [loop, setLoop] = useState(1);
+          const [currentNodeId, setCurrentNodeId] = useState('START');
+          const [environment, setEnvironment] = useState(SURVIVAL_ENVIRONMENTS[0]);
+          const [inventory, setInventory] = useState([]);
+          const [discoveredClues, setDiscoveredClues] = useState([]);
+          const [historyLogs, setHistoryLogs] = useState([]);
+          const [endedRuns, setEndedRuns] = useState([]);
+          const [isMuted, setIsMuted] = useState(true);
+          const [isAudioInitialized, setIsAudioInitialized] = useState(false);
+          const [showIntro, setShowIntro] = useState(true);
+
+          // Typewriter state
+          const [displayedText, setDisplayedText] = useState('');
+          const [isTypingComplete, setIsTypingComplete] = useState(false);
+          const textTimerRef = useRef(null);
+
+          // Puzzle state
+          const [puzzleInput, setPuzzleInput] = useState('');
+          const [puzzleError, setPuzzleError] = useState(null);
+
+          const currentNode = STORY_NODES[currentNodeId] || STORY_NODES.START;
+
+          useEffect(() => {
+            if (currentNodeId === 'START' && sanity === 100) {
+              rollRandomEnvironment();
+              addLog('你睁开了无力的双腿。这里是轮回的最初起点……', 'system');
+            }
+          }, [currentNodeId]);
+
+          useEffect(() => {
+            if (isAudioInitialized && !isMuted) {
+              audio.startHeartbeat(sanity);
+            } else {
+              audio.stopHeartbeat();
+            }
+            return () => audio.stopHeartbeat();
+          }, [sanity, isAudioInitialized, isMuted]);
+
+          useEffect(() => {
+            setDisplayedText('');
+            setIsTypingComplete(false);
+            if (textTimerRef.current) clearInterval(textTimerRef.current);
+
+            const fullDesc = currentNode.desc;
+            let i = 0;
+            
+            textTimerRef.current = setInterval(() => {
+              setDisplayedText((prev) => prev + fullDesc.charAt(i));
+              if (!isMuted && i % 2 === 0) {
+                audio.playTick();
+              }
+              i++;
+              if (i >= fullDesc.length) {
+                clearInterval(textTimerRef.current);
+                setIsTypingComplete(true);
+              }
+            }, 10);
+
+            return () => {
+              if (textTimerRef.current) clearInterval(textTimerRef.current);
+            };
+          }, [currentNodeId, isMuted]);
+
+          const forceSkipTypewriter = () => {
+            if (textTimerRef.current) clearInterval(textTimerRef.current);
+            setDisplayedText(currentNode.desc);
+            setIsTypingComplete(true);
+          };
+
+          const handleEnableAudio = () => {
+            audio.init();
+            setIsAudioInitialized(true);
+            setIsMuted(false);
+            audio.setMute(false);
+            audio.playChime();
+            addLog('🔊 疯人院共鸣脑电波已激活 - 带入感已提升', 'system');
+          };
+
+          const handleToggleMute = () => {
+            const nextMuted = !isMuted;
+            setIsMuted(nextMuted);
+            audio.setMute(nextMuted);
+          };
+
+          const addLog = (text, type) => {
+            const timeStr = new Date().toTimeString().split(' ')[0];
+            setHistoryLogs((prev) => [{ timestamp: timeStr, text, type }, ...prev.slice(0, 40)]);
+          };
+
+          const rollRandomEnvironment = () => {
+            const rolled = SURVIVAL_ENVIRONMENTS[Math.floor(Math.random() * SURVIVAL_ENVIRONMENTS.length)];
+            setEnvironment(rolled);
+            addLog(`🌪/ 环境变动：当前受魔变状态为 【${rolled.name}】`, 'system');
+            addLog(`法则法则：${rolled.effectText}`, 'system');
+            audio.playHurt();
+          };
+
+          const executeChoice = (choice) => {
+            const costMult = environment.sanCostMultiplier;
+            let sanDelta = choice.sanDelta || 0;
+
+            if (environment.type === 'TOXIC_FOG' && sanDelta < 0) {
+              sanDelta -= 5;
+            }
+
+            if (sanDelta < 0) {
+              sanDelta = Math.round(sanDelta * costMult);
+            }
+
+            const nextSanity = Math.max(0, Math.min(100, sanity + sanDelta));
+            setSanity(nextSanity);
+
+            if (sanDelta < 0) {
+              addLog(`🧠 理智受到狂乱冲击，损失 ${Math.abs(sanDelta)} 点。`, 'damage');
+              if (!isMuted) audio.playHurt();
+            } else if (sanDelta > 0) {
+              addLog(`🩹 灵魂防线稍稍回稳，恢复 ${sanDelta} 点理智。`, 'heal');
+              if (!isMuted) audio.playChime();
+            }
+
+            if (choice.gainItem) {
+              const hasItem = inventory.some((itm) => itm.id === choice.gainItem.id);
+              if (!hasItem) {
+                setInventory((prev) => [...prev, choice.gainItem]);
+                addLog(`🎒 获得关键秘宝：【${choice.gainItem.name}】`, 'action');
+                if (!isMuted) audio.playChime();
+              }
+            }
+
+            if (choice.removeItem && choice.requireItem) {
+              setInventory((prev) => prev.filter((itm) => itm.id !== choice.requireItem));
+              addLog(`🎒 顺应天道，消耗了秘宝：【${choice.requireItem}】`, 'system');
+            }
+
+            if (choice.discoverClue) {
+              const hasClue = discoveredClues.some((clue) => clue.id === choice.discoverClue.id);
+              if (!hasClue) {
+                const newClue = {
+                  ...choice.discoverClue,
+                  discoveredAtLoop: loop
+                };
+                setDiscoveredClues((prev) => [...prev, newClue]);
+                addLog(`📖 洞悉深渊秘辛：确认了线索【${choice.discoverClue.title}】`, 'clue');
+                if (!isMuted) audio.playChime();
+              }
+            }
+
+            if (nextSanity <= 0) {
+              triggerGameOver('理智已尽。狂躁与怨念彻底接管了你的肉体，你已彻底成为回廊的一尊石雕。');
+              return;
+            }
+
+            if (choice.loopDelta) {
+              const nextLoop = Math.max(1, loop + choice.loopDelta);
+              setLoop(nextLoop);
+              addLog(`🌀 劫难交替。轮回层数演进至：${nextLoop} 层`, 'system');
+            }
+
+            const nextNode = STORY_NODES[choice.next] || STORY_NODES.START;
+            
+            if (nextNode.isEnding) {
+              addLog(`✨ 达成终焉结局：${nextNode.endingTitle || '终局'}`, 'heal');
+              setEndedRuns((prev) => [...prev, `🎉 【成功脱困】 轮回 ${loop} | 结局: ${nextNode.endingTitle}`]);
+              setCurrentNodeId(choice.next);
+              return;
+            }
+
+            if (nextNode.isDeath) {
+              triggerGameOver(nextNode.desc + ' ' + (nextNode.deathMsg || ''));
+              return;
+            }
+
+            setCurrentNodeId(choice.next);
+            addLog(`➡️ 推进至：${nextNode.title}`, 'action');
+            
+            if (Math.random() < 0.20 && choice.next !== 'START') {
+              rollRandomEnvironment();
+            }
+          };
+
+          const handleSolvePuzzle = (correctAnswer, successNode, failNode, dmg) => {
+            setPuzzleError(null);
+            const cleanedInput = puzzleInput.trim().toUpperCase();
+            const cleanedTarget = correctAnswer.trim().toUpperCase();
+
+            if (cleanedInput === cleanedTarget) {
+              addLog('🔑 解谜完美契合！封印机关发生巨响，发出碎裂金光。', 'heal');
+              if (!isMuted) audio.playChime();
+              setPuzzleInput('');
+              setCurrentNodeId(successNode);
+            } else {
+              setPuzzleInput('');
+              const appliedDmg = environment.type === 'BLIZZARD' ? Math.round(dmg * 1.5) : dmg;
+              const nextSanity = Math.max(0, sanity - appliedDmg);
+              setSanity(nextSanity);
+              
+              addLog(`❌ 解密输入码不匹配！遭遇禁咒反噬，扣除 ${appliedDmg} 点理智！`, 'damage');
+              if (!isMuted) audio.playHurt();
+
+              if (nextSanity <= 0) {
+                triggerGameOver('反噬心魔过重，你的理智瞬间化解，倒在了布满蛊毒的拼音锁盘前。');
+                return;
+              }
+
+              setPuzzleError(`不匹配的代码！你全身神经剧痛，脑部剧烈抽搐（损失 ${appliedDmg} 点理智）。`);
+              
+              if (failNode) {
+                setCurrentNodeId(failNode);
+              }
+            }
+          };
+
+          const triggerGameOver = (deathText) => {
+            setSanity(0);
+            setEndedRuns((prev) => [...prev, `💀 【永眠轮回】 轮回 ${loop} 层 | 折戟于: ${currentNode.title}`]);
+            addLog(`💀 极夜噩耗：你因 ${deathText} 而消逝在轮回之中...`, 'damage');
+            if (!isMuted) audio.playHurt();
+          };
+
+          const handleSacrificeRestart = () => {
+            const nextLoop = loop + 1;
+            setLoop(nextLoop);
+            setSanity(100);
+            setCurrentNodeId('START');
+            rollRandomEnvironment();
+            addLog(`🌀 时空献祭完成。系统重启回廊，轮回重塑为第 ${nextLoop} 层！`, 'system');
+            if (!isMuted) audio.playChime();
+          };
+
+          const handleFullReset = () => {
+            setSanity(100);
+            setLoop(1);
+            setCurrentNodeId('START');
+            setInventory([]);
+            setDiscoveredClues([]);
+            setHistoryLogs([]);
+            setEndedRuns([]);
+            rollRandomEnvironment();
+            addLog('🟨 全局记忆清洗：档案、宝物、轮回级数全部抹除，重掌初始命运。', 'system');
+            if (!isMuted) audio.playChime();
+          };
+
+          return (
+            <div className="min-h-screen bg-[#050505] text-[#e0e0e0] font-sans selection:bg-red-950 selection:text-red-200 relative overflow-hidden flex flex-col items-center justify-start p-4 md:p-6 lg:p-8">
+              
+              {/* Heavy blood ambiance overlay */}
+              <div 
+                className="fixed inset-0 pointer-events-none transition-opacity duration-1000 z-10"
+                style={{
+                  background: 'radial-gradient(circle, transparent 35%, rgba(139, 0, 0, 0.3) 100%)',
+                  opacity: sanity < 30 ? 1 : sanity < 60 ? 0.4 : 0.05
+                }}
+              />
+
+              {/* Atmospheric Vignette */}
+              <div className="fixed inset-0 pointer-events-none shadow-[inset_0_0_120px_rgba(0,0,0,0.95)] z-20" />
+
+              {/* Intro Overlay Card */}
+              {showIntro && (
+                <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4 selection:bg-red-900 selection:text-white">
+                  <div className="max-w-xl w-full bg-[#0a0a0a] border border-[#2d2d2d] p-8 md:p-10 shadow-[0_0_50px_rgba(239,68,68,0.1)] relative rounded-sm">
+                    <div className="absolute top-4 right-4 bg-red-950/60 text-red-400 text-[10px] px-3 py-1 font-mono border border-red-900/40 uppercase tracking-widest">
+                      v1.5 SYSTEM ACTIVE
+                    </div>
+
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="p-3 bg-black border border-[#444] shadow-[0_0_15px_rgba(239,68,68,0.15)] rounded-sm">
+                        <LucideIcon name="Skull" className="w-8 h-8 text-red-500" />
+                      </div>
+                      <div>
+                        <h1 className="text-xl font-black tracking-[0.2em] text-[#e0e0e0] font-sans uppercase">深渊回响 · 极度轮回</h1>
+                        <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider mt-1">THE ABYSSAL ECHOES / CYCLE OF COGNITION</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-xs text-zinc-400 leading-relaxed font-mono">
+                      <p>
+                        你已被锁入无限流位面的核心节点——<strong className="text-red-400">【极暗救赎位面】</strong>。在这里，没有静止的安宁，唯有不可忤逆的世界齿轮。
+                      </p>
+                      <div className="bg-black/80 p-4 border border-[#1a1a1a] text-[11px] rounded-sm">
+                        <span className="text-red-400 font-bold block mb-2 tracking-widest uppercase">🎮 LEVEL RULES & PARAMETERS:</span>
+                        <ul className="list-disc pl-4 space-y-1.5 text-zinc-400">
+                          <li><strong className="text-zinc-200">Survival Mutation (局域异变)</strong>：每一层轮回均随机构筑恶劣生存天煞（毒雾、极寒、血雨等），改变基本损耗系数。</li>
+                          <li><strong className="text-zinc-200">Decryption Puzzle (符文封密)</strong>：关卡中搭载各种密码锁，解谜盘不正确会直接诱发高额理智狂乱，直接致死。</li>
+                          <li><strong className="text-zinc-200">Sacrificial Loop (秘宝轮回)</strong>：利用特定的寻获物件来规避各种绝命机关，若不慎陷入死局，可主动实施时空献祭，获得Loop+1并重新起跑。</li>
+                        </ul>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 italic mt-2">
+                        * 极度建议戴上耳机体验。点击搭载音频按钮会自动初始化低保真神经频率操作背景音。
+                      </p>
+                    </div>
+
+                    <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => {
+                          handleEnableAudio();
+                          setShowIntro(false);
+                        }}
+                        className="flex-grow bg-red-950/30 hover:bg-red-900 border border-red-800 hover:text-white text-red-200 font-bold py-3.5 px-6 transition-all font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm cursor-pointer"
+                      >
+                        <LucideIcon name="Volume2" className="w-4 h-4 text-red-400 animate-pulse" /> SYNC AUDIO & START
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowIntro(false);
+                        }}
+                        className="bg-[#050505] hover:bg-[#111] text-zinc-500 hover:text-zinc-300 py-3.5 px-6 transition-all font-mono text-xs uppercase tracking-wider border border-[#222] flex items-center justify-center rounded-sm cursor-pointer"
+                      >
+                        SILENT INITIATION
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Main UI Layout Container */}
+              <div className="max-w-6xl w-full flex flex-col gap-6 relative z-30 flex-grow">
+                
+                {/* Top Header Controls bar */}
+                <header className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#0a0a0a] border border-[#222] p-6 rounded-sm relative overflow-hidden shadow-lg">
+                  {/* Diagnostic top edge indicator */}
+                  <div className="absolute top-0 left-0 w-full h-[1.5px] bg-gradient-to-r from-red-600 via-[#111] to-cyan-500" />
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-[#111] border border-[#333] relative rounded-sm">
+                      <div className="absolute inset-0 bg-[#ff2222]/10" />
+                      <LucideIcon name="Skull" className="w-6 h-6 text-red-500 relative z-10" />
+                    </div>
+                    <div>
+                      <h1 className="text-sm uppercase tracking-[0.25em] text-[#efefe0] font-bold">深 渊 回 响 // ABYSSAL.OS</h1>
+                      <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        SECURE FEED: EX-9921-Ω // SYSTEM STABLE
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      onClick={isAudioInitialized ? handleToggleMute : handleEnableAudio}
+                      className={`px-4 py-2 text-[10px] uppercase tracking-wider border transition-all rounded-sm cursor-pointer ${
+                        isMuted 
+                          ? 'bg-transparent border-[#222] text-zinc-500 hover:text-zinc-300 hover:bg-[#111]' 
+                          : 'bg-red-950/20 border-red-500/50 text-red-200 hover:bg-gradient-to-r hover:from-red-950/30'
+                      }`}
+                      title={isMuted ? "开启沉浸声效" : "静音"}
+                    >
+                      {isMuted ? "AUDIO FEED: STATIC" : "AUDIO FEED: LIVE"}
+                    </button>
+                    <button
+                      onClick={handleSacrificeRestart}
+                      className="px-4 py-2 border border-red-900 bg-[#150a0a] hover:bg-red-950 hover:border-red-500 text-red-400 text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 font-bold rounded-sm cursor-pointer"
+                    >
+                      <LucideIcon name="RefreshCcw" className="w-3.5 h-3.5" /> REBOOT TIMELINE (LOOP +1)
+                    </button>
+                    <button
+                      onClick={handleFullReset}
+                      className="px-4 py-2 border border-[#222] bg-transparent hover:bg-[#111] text-zinc-500 hover:text-zinc-300 text-[10px] uppercase tracking-wider transition-all rounded-sm cursor-pointer"
+                    >
+                      清洗记忆 WIPE
+                    </button>
+                  </div>
+                </header>
+
+                {/* Dashboard Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  
+                  {/* LEFT COLUMN: Player Status & Current Environmental state */}
+                  <section className="lg:col-span-4 flex flex-col gap-6">
+
+                    {/* Sanity Bar and Loop status */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 relative overflow-hidden flex flex-col gap-4 rounded-sm">
+                      <div className="absolute top-2 right-3 text-[10px] text-zinc-700 font-mono">REALITY_LINK</div>
+                      
+                      <div>
+                        <span className="text-[10px] uppercase tracking-widest block mb-2 font-bold select-none text-zinc-500">
+                          🧠 COGNITIVE MATRIX / 理智阀
+                        </span>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs text-zinc-500 font-mono">STABILITY INDEX</span>
+                          <span className={`text-4xl font-black font-mono tracking-tight ${sanity <= 30 ? 'text-red-500 animate-pulse' : 'text-[#efefe0]'}`}>
+                            {sanity}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Segmented health visualization */}
+                      <div className="h-6 bg-[#030303] border border-[#1d1d1d] p-1 flex gap-0.5 relative overflow-hidden">
+                        {Array.from({ length: 20 }).map((_, idx) => {
+                          const threshold = (idx + 1) * 5;
+                          const isActive = sanity >= threshold;
+                          const isLow = sanity <= 30;
+                          return (
+                            <div 
+                              key={idx}
+                              className={`flex-grow transition-all duration-300 ${
+                                isActive 
+                                  ? isLow 
+                                    ? 'bg-red-600 shadow-[0_0_4px_#ef4444]' 
+                                    : 'bg-red-500'
+                                  : 'bg-zinc-950'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-[11px] text-zinc-400 leading-relaxed font-mono">
+                        {sanity <= 30 
+                          ? '⚠️ [CRITICAL] 脑叶正在沸腾。来自无端幻视的剧烈轰鸣正在撕扯现实，你理智的核心锚点仅存微弱防线。' 
+                          : sanity <= 60 
+                          ? '⚡ [ALERT] 视觉波段出现高频抖动。在冥冥中的窥视中，你逐渐开始接受这里的扭曲物理规律。' 
+                          : '🟢 [STABLE] 系统防火墙正在生效。你仍坚信自己是人类，努力拒绝病院同化。'}
+                      </p>
+
+                      <div className="pt-4 border-t border-[#1c1c1c] flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-zinc-500">ACTIVE TIMELINE CONTEXT</span>
+                        <span className="text-[#00f0ff] font-bold uppercase tracking-wider bg-zinc-950 border border-[#222] px-2 py-0.5">
+                          CYCLE_0{loop}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* active environment mod card */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 relative flex flex-col gap-3 rounded-sm">
+                      <div className="absolute top-2 right-3 text-[10px] text-red-500/80 font-mono uppercase tracking-wider">
+                        lvl {environment.dangerLevel} danger
+                      </div>
+
+                      <span className="text-[10px] uppercase tracking-widest block font-bold text-zinc-500">
+                        🌍 SURVIVAL SHADOW / 生存煞象
+                      </span>
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-[#efeff0]">
+                          {environment.name}
+                        </h3>
+                      </div>
+
+                      <p className="text-[11px] text-zinc-400 leading-relaxed font-mono">
+                        {environment.description}
+                      </p>
+
+                      <div className="bg-black border border-[#1d1d1d] p-4 text-[11px] font-mono text-zinc-400 flex items-start gap-2.5 mt-1 rounded-sm">
+                        <LucideIcon name="AlertOctagon" className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+                        <div>
+                          <span className="text-red-400 font-bold block mb-1 uppercase text-[10px] tracking-wider font-sans">
+                            天罡惩罚法则 // LOCAL RULE:
+                          </span>
+                          {environment.effectText}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Backpack / Item slots */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 flex flex-col gap-4 rounded-sm">
+                      <span className="text-[10px] uppercase tracking-widest block font-bold text-zinc-500">
+                        🎒 PACK GRID / 包裹栏 ({inventory.length} / 5)
+                      </span>
+
+                      <div className="grid grid-cols-5 gap-2">
+                        {Array.from({ length: 5 }).map((_, index) => {
+                          const item = inventory[index];
+                          return (
+                            <div 
+                              key={index} 
+                              className={`aspect-square border flex items-center justify-center relative transition-all group rounded-none select-none ${
+                                item 
+                                  ? item.rarity === 'cursed' 
+                                    ? 'bg-purple-950/20 border-purple-800/60 shadow-[0_0_8px_rgba(168,85,247,0.15)]' 
+                                    : item.rarity === 'rare' 
+                                    ? 'bg-amber-950/20 border-amber-800/60 shadow-[0_0_8px_rgba(245,158,11,0.15)]' 
+                                    : 'bg-zinc-950 border-[#444]'
+                                  : 'bg-zinc-950/20 border-[#1d1d1d] border-dashed text-zinc-800'
+                              }`}
+                              title={item ? `${item.name}: ${item.description}` : '空置槽位'}
+                            >
+                              {item ? (
+                                <div className="p-1">
+                                  <LucideIcon name={item.icon} className="w-5 h-5 text-zinc-200" />
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-mono text-zinc-805">Ø</span>
+                              )}
+                              
+                              {item && (
+                                <span className={`absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full ${
+                                  item.rarity === 'cursed' ? 'bg-purple-500' : item.rarity === 'rare' ? 'bg-amber-500' : 'bg-zinc-400'
+                                }`} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {inventory.length > 0 ? (
+                        <div className="flex flex-col gap-2 bg-black border border-[#1a1a1a] p-3 rounded-sm">
+                          <span className="text-[9px] text-[#ff4444] uppercase tracking-wider font-bold">包裹搭载物档案:</span>
+                          <div className="max-h-[140px] overflow-y-auto pr-1 flex flex-col gap-2">
+                            {inventory.map((itm) => (
+                              <div key={itm.id} className="text-[11px] font-mono leading-relaxed border-b border-[#111] pb-2 last:border-b-0 last:pb-0">
+                                <strong className={itm.rarity === 'cursed' ? 'text-purple-400' : itm.rarity === 'rare' ? 'text-amber-400' : 'text-zinc-200'}>
+                                  【{itm.name}】
+                                </strong>
+                                <p className="text-zinc-450 text-[10px] mt-0.5">{itm.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-5 text-center text-[10px] text-zinc-600 italic font-mono border border-dashed border-[#1d1d1d] bg-black/20 rounded-sm">
+                          PACK EMPTY // 等待奇遇拾取
+                        </div>
+                      )}
+                    </div>
+
+                  </section>
+
+                  {/* CENTER COLUMN: Main story log */}
+                  <main className="lg:col-span-5 flex flex-col gap-6">
+                    
+                    {/* Ambient whispers bar */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-5 flex items-center gap-3 relative overflow-hidden rounded-sm">
+                      <div className="absolute top-0 left-0 w-[2.5px] h-full bg-red-600" />
+                      <span className="text-[9px] bg-red-950/50 border border-red-900/60 text-red-400 font-bold px-2 py-0.5 uppercase font-mono tracking-wider shrink-0 select-none">
+                        👁️ ECHOPLEX FEED // 阴影低语
+                      </span>
+                      <p className="text-xs italic leading-relaxed text-zinc-300 font-serif tracking-wide">
+                        {sanity <= 30 
+                          ? '「嘻嘻。听到脑壳融化的乐声了吗？血在沸腾……」' 
+                          : currentNodeId === 'START' 
+                          ? '「你逃不出这家病院的，他们都在看着你呢……」' 
+                          : `「每经历一次轮回，你就越接近绝望的真因……」`}
+                      </p>
+                    </div>
+
+                    {/* Main Narrative Card */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-8 backdrop-blur-md flex flex-col gap-6 min-h-[420px] relative overflow-hidden shadow-xl rounded-sm">
+                      
+                      <div className="flex items-center justify-between border-b border-[#1d1d1d] pb-4">
+                        <span className="text-[10px] font-mono text-zinc-500 tracking-wider flex items-center gap-1.5 uppercase font-bold">
+                          <LucideIcon name="Terminal" className="w-3.5 h-3.5 text-zinc-500" /> INSTANCE CORE // {currentNode.title}
+                        </span>
+                        {currentNode.atmosphere && (
+                          <span className="text-[9px] bg-red-950/20 border border-red-900/40 text-red-400 font-mono px-2 py-0.5">
+                            ⚠️ QUANTUM DISTORTION
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Dynamic scroll text area */}
+                      <div className="flex-grow select-text">
+                        <div onClick={forceSkipTypewriter} className="cursor-pointer group">
+                          <p className="text-zinc-200 leading-relaxed font-serif text-sm md:text-base whitespace-pre-wrap tracking-wide transition-colors group-hover:text-zinc-100">
+                            {displayedText}
+                            {!isTypingComplete && (
+                              <span className="inline-block w-1.5 h-4 bg-red-500 ml-1 animate-pulse" />
+                            )}
+                          </p>
+                          
+                          {!isTypingComplete && (
+                            <div className="mt-4 text-[9px] text-[#444] font-mono tracking-widest uppercase select-none">
+                              💡 SCANNING FEED... CLICK TO SKIP TYPEWRITER INITIATION
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Extra ambient descriptor */}
+                        {isTypingComplete && currentNode.atmosphere && (
+                          <div className="mt-6 p-4 bg-black border border-[#1c1c1c] text-xs text-zinc-400 leading-relaxed font-mono border-l-2 border-l-red-500">
+                            {currentNode.atmosphere}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* PUZZLE SOLVER SECTION */}
+                      {isTypingComplete && currentNode.puzzle && (
+                        <div className="bg-black border border-[#222] p-5 mt-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <LucideIcon name="Lock" className="w-4 h-4 text-red-500 animate-pulse" />
+                            <h4 className="text-[10px] font-mono font-bold text-red-400 uppercase tracking-widest">
+                              🧩 COGNITIVE KEYPAD / 谜题验证盘
+                            </h4>
+                          </div>
+                          
+                          <p className="text-xs text-zinc-300 font-mono leading-relaxed mb-4 bg-[#0a0a0a] p-4 border border-[#1a1a1a]">
+                            {currentNode.puzzle.question}
+                          </p>
+
+                          <div className="flex flex-col gap-3">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={puzzleInput}
+                                onChange={(e) => setPuzzleInput(e.target.value)}
+                                placeholder="键入解密大写拼音或数值序列..."
+                                className="flex-1 bg-black border border-[#2d2d2d] px-4 py-3.5 text-xs font-mono text-center tracking-[0.2em] uppercase focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-white"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSolvePuzzle(
+                                      currentNode.puzzle.correctAnswer,
+                                      currentNode.puzzle.onSuccessNode,
+                                      currentNode.puzzle.onFailNode,
+                                      currentNode.puzzle.failSanityDamage
+                                    );
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => handleSolvePuzzle(
+                                  currentNode.puzzle.correctAnswer,
+                                  currentNode.puzzle.onSuccessNode,
+                                  currentNode.puzzle.onFailNode,
+                                  currentNode.puzzle.failSanityDamage
+                                )}
+                                className="bg-red-950/40 hover:bg-red-900 border border-red-500/50 hover:text-white text-red-200 font-bold px-5 text-xs font-mono transition-all cursor-pointer uppercase tracking-wider"
+                              >
+                                DECRYPT
+                              </button>
+                            </div>
+
+                            {puzzleError && (
+                              <p className="text-[11px] text-red-400 font-mono italic leading-relaxed">
+                                ⚠️ {puzzleError}
+                              </p>
+                            )}
+
+                            <div className="border-t border-[#121212] pt-3 text-[10px] text-zinc-500 font-mono flex items-center gap-1">
+                              <LucideIcon name="HelpCircle" className="w-3.5 h-3.5" /> 
+                              <span>HINT PARAMETER: {currentNode.puzzle.hint}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CHOICE PANEL BUTTONS */}
+                      {isTypingComplete && !currentNode.puzzle && (
+                        <div className="flex flex-col gap-3 mt-4">
+                          {currentNode.choices && currentNode.choices.length > 0 ? (
+                            currentNode.choices.map((ch, idx) => {
+                              const hasRequiredItem = ch.requireItem ? inventory.some((itm) => itm.id === ch.requireItem) : true;
+                              const hasRequiredSan = ch.requireSan ? sanity >= ch.requireSan : true;
+                              const isOptionDisabled = !hasRequiredItem || !hasRequiredSan;
+
+                              return (
+                                <button
+                                  key={idx}
+                                  disabled={isOptionDisabled}
+                                  onClick={() => executeChoice(ch)}
+                                  className={`w-full text-left p-5 border transition-all duration-200 relative flex items-start gap-4 select-none ${
+                                    isOptionDisabled 
+                                      ? 'bg-black/40 border-[#1a1a1a] text-zinc-650 cursor-not-allowed opacity-50' 
+                                      : 'bg-[#030303] border-[#222] hover:border-red-500/80 hover:bg-black text-zinc-200 hover:text-zinc-50'
+                                  }`}
+                                >
+                                  <span className="p-1 px-1.5 bg-black border border-[#222] font-mono text-[9px] text-zinc-550 shrink-0 select-none">
+                                    0{idx + 1}
+                                  </span>
+                                  
+                                  <div className="flex-grow">
+                                    <span className="font-mono leading-relaxed block pr-8 tracking-wide">
+                                      {ch.text}
+                                    </span>
+                                    
+                                    {/* Costs / Requirements modifiers badges */}
+                                    <div className="flex items-center gap-2 mt-2.5 flex-wrap text-[10px] font-mono">
+                                      {ch.sanDelta && ch.sanDelta !== 0 && (
+                                        <span className={ch.sanDelta < 0 ? 'text-red-400 bg-red-950/20 border border-red-900/30 px-1.5 py-0.5' : 'text-emerald-400 bg-emerald-950/20 border border-emerald-900/30 px-1.5 py-0.5'}>
+                                          理智 SAN: {ch.sanDelta > 0 ? `+${ch.sanDelta}` : ch.sanDelta}
+                                        </span>
+                                      )}
+                                      
+                                      {ch.requireItem && (
+                                        <span className={`flex items-center gap-1 px-1.5 py-0.5 border ${hasRequiredItem ? 'text-amber-400 bg-amber-950/20 border-amber-900/30' : 'text-red-400 bg-red-950/30 border-red-800'}`}>
+                                          🔑 秘宝: {ch.requireItem} {!hasRequiredItem && '(未持有)'}
+                                        </span>
+                                      )}
+
+                                      {ch.requireSan && (
+                                        <span className={`flex items-center gap-1 px-1.5 py-0.5 border ${hasRequiredSan ? 'text-zinc-500 bg-zinc-950 border-[#1d1d1d]' : 'text-red-550 bg-red-950/10 border-red-800'}`}>
+                                          🧠 理智需求 ≥ {ch.requireSan} {!hasRequiredSan && `(仅 ${sanity})`}
+                                        </span>
+                                      )}
+
+                                      {ch.gainItem && (
+                                        <span className="text-amber-400 bg-amber-950/20 border border-amber-900/30 px-1.5 py-0.5">
+                                          🎁 收获物: {ch.gainItem.name}
+                                        </span>
+                                      )}
+
+                                      {ch.discoverClue && (
+                                        <span className="text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-1.5 py-0.5">
+                                          🔍 领悟线索: {ch.discoverClue.title}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <LucideIcon name="ChevronRight" className="w-4 h-4 text-zinc-600 shrink-0" />
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="flex flex-col gap-3">
+                              <button
+                                onClick={handleSacrificeRestart}
+                                className="w-full text-center p-4 bg-red-950/20 hover:bg-red-900 border border-red-800/85 hover:text-white text-red-300 font-bold rounded-none shadow-lg transition-all font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer"
+                              >
+                                <LucideIcon name="RefreshCcw" className="w-4 h-4" /> TIMELINE CRASHED // 进行时空重启
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                  </main>
+
+                  {/* RIGHT COLUMN: Clue Codex and Run history */}
+                  <section className="lg:col-span-3 flex flex-col gap-6">
+                    
+                    {/* Clue Journal */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 flex flex-col gap-4 rounded-sm">
+                      <span className="text-[10px] uppercase tracking-widest block font-bold text-zinc-500">
+                        📖 CLUE JOURNAL / 已持探案线索 ({discoveredClues.length})
+                      </span>
+                      
+                      {discoveredClues.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-700 italic font-mono border border-dashed border-[#222] bg-[#030303] rounded-sm select-none">
+                          [NO PATH LOG RECORDED]
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3 max-h-[220px] overflow-y-auto pr-1">
+                          {discoveredClues.map((clue) => (
+                            <div key={clue.id} className="bg-black border border-[#1d1d1d] p-3.5 relative rounded-none flex flex-col gap-1.5 text-zinc-300">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-cyan-400"># {clue.title}</span>
+                                <span className="text-[8px] font-mono text-zinc-650 bg-zinc-950 px-1 py-0.5 border border-[#111]">
+                                  CYCLE:0{clue.discoveredAtLoop}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-400 leading-normal font-mono">
+                                {clue.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Run logs timeline */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 flex flex-col gap-4 rounded-sm">
+                      <span className="text-[10px] uppercase tracking-widest block font-bold text-zinc-500">
+                        🕒 SYSTEM LOGS / 时间行迹 logs ({historyLogs.length})
+                      </span>
+
+                      <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-col gap-1.5 font-mono text-[10px] leading-relaxed bg-black/50 border border-[#1c1c1c] p-3 rounded-none text-zinc-400">
+                        {historyLogs.length === 0 ? (
+                          <div className="text-zinc-700 italic uppercase">SYSTEM DISCONNECTED</div>
+                        ) : (
+                          historyLogs.map((log, index) => (
+                            <div key={index} className="flex gap-2 items-start text-zinc-400 border-b border-[#121212] pb-1.5 last:border-b-0 last:pb-0">
+                              <span className="text-zinc-600 shrink-0 text-[9px] font-bold">[{log.timestamp}]</span>
+                              <span className={
+                                log.type === 'damage' ? 'text-red-500' :
+                                log.type === 'heal' ? 'text-emerald-400 font-bold' :
+                                log.type === 'clue' ? 'text-cyan-400' :
+                                log.type === 'system' ? 'text-amber-500' :
+                                'text-zinc-300'
+                              }>
+                                {log.text}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Ancestor Ending Records */}
+                    <div className="bg-[#0a0a0a] border border-[#222] p-6 flex flex-col gap-4 rounded-sm">
+                      <span className="text-[10px] uppercase tracking-widest block font-bold text-zinc-500">
+                        🏆 ANCESTRAL GRAVES / 往世骸骨
+                      </span>
+                      
+                      {endedRuns.length === 0 ? (
+                        <div className="py-4 text-center text-[10px] text-zinc-700 italic font-mono bg-black/40 border border-dashed border-[#1c1c1c] select-none rounded-none">
+                          INIT STATE: TIMELINE FIRSTBORN
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5 font-mono text-[9px] text-zinc-400 max-h-[130px] overflow-y-auto pr-1">
+                          {endedRuns.map((rec, index) => (
+                            <div key={index} className="bg-black p-2 rounded-none border border-[#1b1b1b] flex items-center gap-2 text-zinc-400">
+                              <span className="w-1.5 h-1.5 bg-red-600 rounded-full shrink-0" />
+                              <span>{rec}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </section>
+
+                </div>
+
+                {/* Global Footer info bar */}
+                <footer className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#1d1d1d] pt-6 pb-12 font-mono text-[10px] text-zinc-600 select-none">
+                  <div>
+                    👁️ ABYSSAL REITERATION SYSTEM // COGNITIVE SHIELDING: EXC-VII
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span>SANITY SCANNING: HIGHLY_SENSITIVE</span>
+                    <span>SYSTEM DATE: 2026-06-13</span>
+                  </div>
+                </footer>
+
+              </div>
+            </div>
+          );
+        }
+
+        // Render React Application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
